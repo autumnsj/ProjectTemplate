@@ -1,3 +1,0 @@
-/example/cluster-logs/*
-/example/mysql/*
-!*.gitkeep

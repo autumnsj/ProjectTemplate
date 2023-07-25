@@ -1,32 +1,99 @@
-version: "2"
+version: "3.8"
 services:
   nacos:
     image: nacos/nacos-server:${NACOS_VERSION}
-    container_name: nacos-standalone
-    environment:
-      - PREFER_HOST_MODE=hostname
-      - MODE=standalone
-      - NACOS_AUTH_IDENTITY_KEY=serverIdentity
-      - NACOS_AUTH_IDENTITY_VALUE=security
-      - NACOS_AUTH_TOKEN=SecretKey012345678901234567890123456789012345678901234567890123456789
+    container_name: nacos
+    env_file:
+      - ./env/custom-application-config.env
     volumes:
-      - ./standalone-logs/:/home/nacos/logs
+      - ./volumes/nacos/:/home/nacos/logs
+      - ./init.d/application.properties:/home/nacos/conf/application.properties
+    networks:
+      dev_net:
+        ipv4_address: ${NACOS_IP}
     ports:
       - "8848:8848"
       - "9848:9848"
-  prometheus:
-    container_name: prometheus
-    image: prom/prometheus:latest
-    volumes:
-      - ./prometheus/prometheus-standalone.yaml:/etc/prometheus/prometheus.yml
-    ports:
-      - "9090:9090"
     depends_on:
-      - nacos
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'ruok' | curl -s telnet://localhost:8848 || exit 1"]
+      retries: 10
     restart: on-failure
-  grafana:
-    container_name: grafana
-    image: grafana/grafana:latest
+  mysql:
+    container_name: mysql
+    build:
+      context: .
+      dockerfile: images/mysql/Dockerfile
+    #image: mysql:5.7
+    env_file:
+      - ./env/mysql.env
+    volumes:
+      - ./volumes/mysql:/var/lib/mysql
     ports:
-      - 3000:3000
-    restart: on-failure
+      - "3306:3306"
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    networks:
+      dev_net:
+        ipv4_address: ${MYSQL_IP}
+  seata:
+    container_name: seata
+    build: 
+      context: ../../seata/1.7.0
+      dockerfile: ../../seata/1.7.0/Dockerfile
+    image: dev/seata-server:1.7.0
+    ports:
+      - "7091:7091"
+      - "8091:8091"
+    environment:
+      - STORE_MODE=db
+      # 以SEATA_IP作为host注册seata server
+      - SEATA_IP=${LOCAL_IP}
+      - SEATA_PORT=8091
+    volumes:
+      # - "/usr/share/zoneinfo/Asia/Shanghai:/etc/localtime"        #设置系统时区
+      # - "/usr/share/zoneinfo/Asia/Shanghai:/etc/timezone"  #设置时区
+      # 假设我们通过docker cp命令把资源文件拷贝到相对路径`./seata-server/resources`中
+      # 如有问题，请阅读上面的[注意事项]以及[使用自定义配置文件]
+      - "./config/seata/application.yml:/seata-server/conf/application.yml"
+    depends_on:
+      nacos:
+        condition: service_healthy
+    networks:
+      dev_net:
+        ipv4_address: 172.0.0.3
+  # seata:
+  #   container_name: seata
+  #   image: seataio/seata-server:latest
+  #   ports:
+  #     - "7091:7091"
+  #     - "8091:8091"
+  #   environment:
+  #     - STORE_MODE=db
+  #     # 以SEATA_IP作为host注册seata server
+  #     - SEATA_IP=${LOCAL_IP}
+  #     - SEATA_PORT=8091
+  #   volumes:
+  #     # - "/usr/share/zoneinfo/Asia/Shanghai:/etc/localtime"        #设置系统时区
+  #     # - "/usr/share/zoneinfo/Asia/Shanghai:/etc/timezone"  #设置时区
+  #     # 假设我们通过docker cp命令把资源文件拷贝到相对路径`./seata-server/resources`中
+  #     # 如有问题，请阅读上面的[注意事项]以及[使用自定义配置文件]
+  #     - "./config/seata:/seata-server/resources"
+  #   depends_on:
+  #     nacos:
+  #       condition: service_healthy
+  #   networks:
+  #     dev_net:
+  #       ipv4_address: 172.0.0.2
+networks:
+  dev_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.0.0.0/24
