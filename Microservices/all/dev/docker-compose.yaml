@@ -45,7 +45,7 @@ services:
     container_name: seata
     build: 
       context: ../../seata/1.7.0
-      dockerfile: ../../seata/1.7.0/Dockerfile
+      dockerfile: Dockerfile
     ports:
       - "7091:7091"
       - "8091:8091"
@@ -113,7 +113,7 @@ services:
     links:
       - rocketmq-namesrv
     ports:
-      - 8080:8080
+      - 8081:8080
     environment:
         JAVA_OPTS: "-Drocketmq.namesrv.addr=rocketmq-namesrv:9876 -Dcom.rocketmq.sendMessageWithVIPChannel=false"
     networks:
@@ -175,7 +175,7 @@ services:
     links:
       - skywalking-oap
     ports:
-      - "8090:8080"
+      - "8082:8080"
     environment:
       SW_OAP_ADDRESS: http://skywalking-oap:12800
       SW_ZIPKIN_ADDRESS: http://skywalking-oap:9412
@@ -187,7 +187,7 @@ services:
       context: ../../sentinel
       dockerfile: Dockerfile
     ports:
-      - "8082:8080"
+      - "8080:8080"
     environment:
       JAVA_OPTIONS: -Dnacos.serverAddr=nacos:8848
     networks:
