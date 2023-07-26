@@ -14,6 +14,4 @@ EXPOSE 8080
 
 ENV JAVA_TOOL_OPTIONS="-agentlib:jdwp=transport=dt_socket,address=*:35005,server=y,suspend=n"
 
-
-CMD java -jar /app/sentinel-dashboard.jar
 ENTRYPOINT [ "sh", "-c", "java -jar ${JAVA_OPTIONS} /app/sentinel-dashboard.jar ${PARAMS}" ]
