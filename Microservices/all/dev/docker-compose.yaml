@@ -87,11 +87,11 @@ services:
     command: sh mqnamesrv
     networks:
       dev_net:
-    # healthcheck:
-    #   test: ["CMD-SHELL", "curl -s http://localhost:9876/onsaddr | grep -c 9876"]
-    #   interval: 5s
-    #   timeout: 10s
-    #   retries: 10
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9876/onsaddr | grep -c 9876"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
   #Service for broker
   broker:
     image: apache/rocketmq
@@ -107,14 +107,14 @@ services:
     volumes:
       - ./volumes/mq/broker/logs:/home/rocketmq/logs
       - ./volumes/mq/broker/store:/home/rocketmq/store
-      - ./rocketmq/broker-a.conf:/opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf
+      - ./config/rocketmq/broker-a.conf:/opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf
     command: sh mqbroker -c /opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf
-    # depends_on:
-    #   namesrv:
-    #     condition: service_healthy
+    depends_on:
+      namesrv:
+        condition: service_healthy
     networks:
       dev_net:
-  console:
+  mq-ui:
     image: styletang/rocketmq-console-ng
     container_name: console
     links:
