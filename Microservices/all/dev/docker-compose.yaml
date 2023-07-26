@@ -51,7 +51,6 @@ services:
       - "7091:7091"
       - "8091:8091"
     environment:
-      - STORE_MODE=db
       # 以SEATA_IP作为host注册seata server
       - SEATA_IP=${LOCAL_IP}
       - SEATA_PORT=8091
@@ -77,9 +76,11 @@ services:
       - "./volumes/cache:/data"
     networks:
       dev_net:
-  namesrv:
+  rocketmq-namesrv:
     image: apache/rocketmq
-    container_name: namesrv
+    container_name: rocketmq-namesrv
+    environment:
+      - JAVA_OPT_EXT=-server -Xms128m -Xmx128m
     ports:
       - 9876:9876
     volumes:
@@ -87,50 +88,41 @@ services:
     command: sh mqnamesrv
     networks:
       dev_net:
-    healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9876/onsaddr | grep -c 9876"]
-      interval: 5s
-      timeout: 10s
-      retries: 10
   #Service for broker
-  broker:
+  rocketmq-broker:
     image: apache/rocketmq
-    container_name: rmqbroker
+    container_name: rocketmq-broker
     links:
-      - namesrv
+      - rocketmq-namesrv
     ports:
       - 10909:10909
       - 10911:10911
       - 10912:10912
     environment:
-      - NAMESRV_ADDR=namesrv:9876
+      - NAMESRV_ADDR=rocketmq-namesrv:9876
+      - JAVA_OPT_EXT=-server -Xms128m -Xmx128m
     volumes:
       - ./volumes/mq/broker/logs:/home/rocketmq/logs
       - ./volumes/mq/broker/store:/home/rocketmq/store
       - ./config/rocketmq/broker-a.conf:/opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf
     command: sh mqbroker -c /opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf
-    depends_on:
-      namesrv:
-        condition: service_healthy
     networks:
       dev_net:
-  mq-ui:
+  rocketmq-console:
     image: styletang/rocketmq-console-ng
-    container_name: console
+    container_name: rocketmq-console
     links:
-      - namesrv
+      - rocketmq-namesrv
     ports:
       - 8080:8080
     environment:
-        JAVA_OPTS: "-Drocketmq.namesrv.addr=namesrv:9876 -Dcom.rocketmq.sendMessageWithVIPChannel=false"
+        JAVA_OPTS: "-Drocketmq.namesrv.addr=rocketmq-namesrv:9876 -Dcom.rocketmq.sendMessageWithVIPChannel=false"
     networks:
       dev_net:
-    # depends_on:
-    #   namesrv:
-    #     condition: created
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch-oss:${ES_VERSION}
     container_name: elasticsearch
+    mem_limit: 1g
     ports:
       - "9200:9200"
     healthcheck:
