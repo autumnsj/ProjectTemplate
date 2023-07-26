@@ -46,7 +46,6 @@ services:
     build: 
       context: ../../seata/1.7.0
       dockerfile: ../../seata/1.7.0/Dockerfile
-    image: dev/seata-server:1.7.0
     ports:
       - "7091:7091"
       - "8091:8091"
@@ -182,6 +181,20 @@ services:
       SW_ZIPKIN_ADDRESS: http://skywalking-oap:9412
     networks:
       dev_net:
+  sentinel:
+    container_name: sentinel
+    build:
+      context: ../../sentinel
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8080"
+    environment:
+      JAVA_OPTIONS: -Dnacos.serverAddr=nacos:8848
+    networks:
+      dev_net:
+    depends_on:
+      nacos:
+        condition: service_healthy
 networks:
   dev_net:
     driver: bridge
