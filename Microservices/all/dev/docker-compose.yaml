@@ -24,8 +24,8 @@ services:
   mysql:
     container_name: mysql
     build:
-      context: .
-      dockerfile: images/mysql/Dockerfile
+      context: images/mysql
+      dockerfile: Dockerfile
     #image: mysql:5.7
     env_file:
       - ./env/mysql.env
