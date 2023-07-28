@@ -1,5 +1,5 @@
-CREATE DATABASE IF NOT EXISTS `seata-server` DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;
-use `seata-server`;
+CREATE DATABASE IF NOT EXISTS `seata` DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;
+use `seata`;
 -- -------------------------------- The script used when storeMode is 'db' --------------------------------
 -- the table to store GlobalSession data
 CREATE TABLE IF NOT EXISTS `global_table`

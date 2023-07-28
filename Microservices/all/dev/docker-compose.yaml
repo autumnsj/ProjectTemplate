@@ -26,7 +26,6 @@ services:
     build:
       context: images/mysql
       dockerfile: Dockerfile
-    #image: mysql:5.7
     env_file:
       - ./env/mysql.env
     volumes:
@@ -195,6 +194,24 @@ services:
     depends_on:
       nacos:
         condition: service_healthy
+  xxl-job:
+    image: xuxueli/xxl-job-admin:2.0.2
+    restart: always
+    container_name: xxl-job
+    ports:
+      - 28888:8080
+    links:
+      - mysql
+    volumes:
+      - "./volumes/xxl-job:/data/applogs"
+    environment:
+      - spring.datasource.url=jdbc:mysql://mysql:3306/xxl-job?Unicode=true&characterEncoding=UTF-8&autoReconnect=true
+      - spring.datasource.password=root
+    depends_on: 
+      mysql:
+        condition: service_healthy
+    networks:
+      dev_net:
 networks:
   dev_net:
     driver: bridge
