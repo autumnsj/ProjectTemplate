@@ -93,6 +93,7 @@ services:
     container_name: rocketmq-broker
     links:
       - rocketmq-namesrv
+    user: root
     ports:
       - 10909:10909
       - 10911:10911
@@ -103,8 +104,11 @@ services:
     volumes:
       - ./volumes/mq/broker/logs:/home/rocketmq/logs
       - ./volumes/mq/broker/store:/home/rocketmq/store
-      - ./config/rocketmq/broker-a.conf:/opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf
-    command: sh mqbroker -c /opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf
+      - ./config/rocketmq/broker-a.conf:/opt/rocketmq-ROCKETMQ_VERSION/conf/tmp.conf
+    command: >
+      sh -c "cp /opt/rocketmq-ROCKETMQ_VERSION/conf/tmp.conf /opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf && \
+             echo 'brokerIP1=${LOCAL_IP}' >> /opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf && \
+             sh mqbroker -c /opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf"
     networks:
       dev_net:
   rocketmq-console:
