@@ -11,6 +11,9 @@ services:
     networks:
       dev_net:
         ipv4_address: ${NACOS_IP}
+    hostname: nacos
+    environment:
+      - TZ=Asia/Shanghai
     ports:
       - "8848:8848"
       - "9848:9848"
@@ -167,7 +170,7 @@ services:
       SW_STORAGE_ES_CLUSTER_NODES: elasticsearch:9200
       SW_HEALTH_CHECKER: default
       SW_TELEMETRY: prometheus
-      JAVA_OPTS: "-Xms2048m -Xmx2048m"
+      JAVA_OPTS: "-Xms512m -Xmx512m"
     networks:
       dev_net:
   skywalking-ui:
