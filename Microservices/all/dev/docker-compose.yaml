@@ -196,7 +196,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      JAVA_OPTIONS: -Dnacos.serverAddr=nacos:8848
+      JAVA_OPTIONS: -Dnacos.addr=nacos:8848
     networks:
       dev_net:
     depends_on:
