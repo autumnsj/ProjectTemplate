@@ -1,1 +1,1 @@
-docker-compose -f .\docker-compose.yaml down -d
+docker-compose -f .\docker-compose.yaml down
