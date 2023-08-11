@@ -1,10 +1,29 @@
 server:
   port: 7091
-
+  undo:
+    logSaveDays: 7
+    # undo清理线程间隔时间 默认86400000，单位毫秒
+    logDeletePeriod: 86400000
+    # 二阶段提交重试超时时长 单位ms,s,m,h,d,对应毫秒,秒,分,小时,天,默认毫秒。默认值-1表示无限重试
+    # 公式: timeout>=now-globalTransactionBeginTime,true表示超时则不再重试
+    # 注: 达到超时时间后将不会做任何重试,有数据不一致风险,除非业务自行可校准数据,否者慎用
+    maxCommitRetryTimeout: -1
+    # 二阶段回滚重试超时时长
+    maxRollbackRetryTimeout: -1
+    # 二阶段提交未完成状态全局事务重试提交线程间隔时间 默认1000，单位毫秒
+    recovery:
+      committingRetryPeriod: 1000
+    # 二阶段异步提交状态重试提交线程间隔时间 默认1000，单位毫秒
+      asynCommittingRetryPeriod: 1000
+    # 二阶段回滚状态重试回滚线程间隔时间  默认1000，单位毫秒
+      rollbackingRetryPeriod: 1000
+    # 超时状态检测重试线程间隔时间 默认1000，单位毫秒，检测出超时将全局事务置入回滚会话管理器
+      timeoutRetryPeriod: 1000
+  vgroupMapping:
+    seata-server: default
 spring:
   application:
     name: seata-server
-
 logging:
   config: classpath:logback-spring.xml
   file:
@@ -20,18 +39,17 @@ console:
   user:
     username: seata
     password: seata
-
 seata:
   config:
-    #type: nacos
-    # nacos:
-    #   server-addr: nacos:8848
-    #   namespace: ""
-    #   group: DEFAULT_GROUP
-    #   username: nacos
-    #   password: nacos
-    #   data-id: seataServer.properties
-    type: file
+    type: nacos
+    nacos:
+      server-addr: nacos:8848
+      namespace: ""
+      group: DEFAULT_GROUP
+      username: nacos
+      password: nacos
+      data-id: seataServer.properties
+    #type: file
   registry:
     type: nacos
     nacos:
@@ -50,81 +68,31 @@ seata:
     tokenValidityInMilliseconds: 1800000
     ignore:
       urls: /,/**/*.css,/**/*.js,/**/*.html,/**/*.map,/**/*.svg,/**/*.png,/**/*.ico,/console-fe/public/**,/api/v1/auth/login
-  server:
-    service-port: 8091 #If not configured, the default is '${server.port} + 1000'
-    max-commit-retry-timeout: -1
-    max-rollback-retry-timeout: -1
-    rollback-retry-timeout-unlock-enable: false
-    enable-check-auth: true
-    enable-parallel-request-handle: true
-    retry-dead-threshold: 130000
-    xaer-nota-retry-timeout: 60000
-    enableParallelRequestHandle: true
-    recovery:
-      committing-retry-period: 1000
-      async-committing-retry-period: 1000
-      rollbacking-retry-period: 1000
-      timeout-retry-period: 1000
-    undo:
-      log-save-days: 7
-      log-delete-period: 86400000
-    session:
-      branch-async-queue-size: 5000 #branch async remove queue size
-      enable-branch-async-remove: false #enable to asynchronous remove branchSession
-  store:
-    # support: file 、 db 、 redis
-    mode: file
-    session:
-      mode: file
-    lock:
-      mode: file
-    file:
-      dir: sessionStore
-      max-branch-session-size: 16384
-      max-global-session-size: 512
-      file-write-buffer-cache-size: 16384
-      session-reload-read-size: 100
-      flush-disk-mode: async
-    db:
-      datasource: druid
-      db-type: mysql
-      driver-class-name: com.mysql.jdbc.Driver
-      url: jdbc:mysql://mysql:3306/seata?rewriteBatchedStatements=true
-      user: root
-      password: root
-      min-conn: 10
-      max-conn: 100
-      global-table: global_table
-      branch-table: branch_table
-      lock-table: lock_table
-      distributed-lock-table: distributed_lock
-      query-limit: 1000
-      max-wait: 5000
-    redis:
-      mode: single
-      database: 0
-      min-conn: 10
-      max-conn: 100
-      password:
-      max-total: 100
-      query-limit: 1000
-      single:
-        host: 127.0.0.1
-        port: 6379
-      sentinel:
-        master-name:
-        sentinel-hosts:
-  metrics:
-    enabled: false
-    registry-type: compact
-    exporter-list: prometheus
-    exporter-prometheus-port: 9898
-  transport:
-    rpc-tc-request-timeout: 15000
-    enable-tc-server-batch-send-response: false
-    shutdown:
-      wait: 3
-    thread-factory:
-      boss-thread-prefix: NettyBoss
-      worker-thread-prefix: NettyServerNIOWorker
-      boss-thread-size: 1
+store:
+  mode: db
+  # -----db-----
+  db:
+    datasource: druid
+    dbType: mysql
+    # 需要根据mysql的版本调整driverClassName
+    # mysql8及以上版本对应的driver：com.mysql.cj.jdbc.Driver
+    # mysql8以下版本的driver：com.mysql.jdbc.Driver
+    driverClassName: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://mysql:3306/seata?useUnicode=true&characterEncoding=utf8&connectTimeout=1000&socketTimeout=3000&autoReconnect=true&useSSL=false
+    user: root
+    password: root
+    # 数据库初始连接数
+    minConn: 1
+    # 数据库最大连接数
+    maxConn: 20
+    # 获取连接时最大等待时间 默认5000，单位毫秒
+    maxWait: 5000
+    # 全局事务表名 默认global_table
+    globalTable: global_table
+    # 分支事务表名 默认branch_table
+    branchTable: branch_table
+    # 全局锁表名 默认lock_table
+    lockTable: lock_table
+    # 查询全局事务一次的最大条数 默认100
+    queryLimit: 100
+
