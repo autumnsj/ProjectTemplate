@@ -8,7 +8,6 @@ services:
       - ./config/nacos/application.properties:/home/nacos/conf/application.properties
     networks:
       dev_net:
-        ipv4_address: ${NACOS_IP}
     hostname: nacos
     environment:
       - TZ=Asia/Shanghai
@@ -49,7 +48,6 @@ services:
       retries: 10
     networks:
       dev_net:
-        ipv4_address: ${MYSQL_IP}
   seata:
     container_name: seata
     # build: 
