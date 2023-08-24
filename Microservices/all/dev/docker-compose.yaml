@@ -17,6 +17,8 @@ services:
       - NACOS_AUTH_IDENTITY_KEY=2222
       - NACOS_AUTH_IDENTITY_VALUE=2xxx
       - NACOS_AUTH_TOKEN=SecretKey012345678901234567890123456789012345678901234567890123456789
+      - JVM_XMS=256m
+      - JVM_XMX=256m
     ports:
       - "8848:8848"
       - "9848:9848"
@@ -61,6 +63,7 @@ services:
       # 注册到nacos的服务的ip
       - SEATA_IP=${LOCAL_IP} 
       - SEATA_PORT=8091
+      - JAVA_OPTS=-Xms256m -Xmx256m
     volumes:
       #- "/usr/share/zoneinfo/Asia/Shanghai:/etc/localtime"        #设置系统时区
       #- "/usr/share/zoneinfo/Asia/Shanghai:/etc/timezone"  #设置时区
@@ -75,17 +78,33 @@ services:
         condition: service_healthy
     networks:
       dev_net:
-  cache:
-    container_name: cache
+  redis:
+    container_name: redis
     image: redis
     restart: always
     ports:
       - '6379:6379'
     #command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
     volumes: 
-      - "./volumes/cache:/data"
+      - "./volumes/redis:/data"
     networks:
       dev_net:
+  # rabbitmq:
+  #   image: rabbitmq:management
+  #   container_name: rabbitmq
+  #   restart: always
+  #   ports:
+  #     - 5672:5672
+  #     - 15672:15672
+  #   environment:
+  #     RABBITMQ_DEFAULT_VHOST: '/'
+  #     RABBITMQ_DEFAULT_USER: admin
+  #     RABBITMQ_DEFAULT_PASS: admin
+  #   volumes:
+  #       - ./volumes/rabbitmq/data/:/var/lib/rabbitmq
+  #       - ./volumes/rabbitmq/logs:/var/log/rabbitmq
+  #   networks:
+  #     dev_net:
   rocketmq-namesrv:
     image: apache/rocketmq
     container_name: rocketmq-namesrv
@@ -125,18 +144,15 @@ services:
   rocketmq-console:
     image: styletang/rocketmq-console-ng
     container_name: rocketmq-console
-    links:
-      - rocketmq-namesrv
     ports:
       - 8081:8080
     environment:
-        JAVA_OPTS: "-Drocketmq.namesrv.addr=rocketmq-namesrv:9876 -Dcom.rocketmq.sendMessageWithVIPChannel=false"
+        JAVA_OPTS: "-Drocketmq.namesrv.addr=rocketmq-namesrv:9876 -Dcom.rocketmq.sendMessageWithVIPChannel=false -Xms128m -Xmx128m"
     networks:
       dev_net:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch-oss:${ES_VERSION}
     container_name: elasticsearch
-    mem_limit: 1g
     ports:
       - "9200:9200"
     healthcheck:
@@ -148,7 +164,7 @@ services:
     environment:
       - discovery.type=single-node
       - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
     ulimits:
       memlock:
         soft: -1
@@ -162,8 +178,6 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-    links:
-      - elasticsearch
     ports:
       - "11800:11800"
       - "12800:12800"
@@ -178,7 +192,7 @@ services:
       SW_STORAGE_ES_CLUSTER_NODES: elasticsearch:9200
       SW_HEALTH_CHECKER: default
       SW_TELEMETRY: prometheus
-      JAVA_OPTS: "-Xms512m -Xmx512m"
+      JAVA_OPTS: "-Xms256m -Xmx256m"
     networks:
       dev_net:
   skywalking-ui:
@@ -187,8 +201,6 @@ services:
     depends_on:
       skywalking-oap:
         condition: service_healthy
-    links:
-      - skywalking-oap
     ports:
       - "8082:8080"
     environment:
@@ -216,13 +228,12 @@ services:
     container_name: xxl-job
     ports:
       - 28888:8080
-    links:
-      - mysql
     volumes:
       - "./volumes/xxl-job:/data/applogs"
     environment:
       - spring.datasource.url=jdbc:mysql://mysql:3306/xxl-job?Unicode=true&characterEncoding=UTF-8&autoReconnect=true
       - spring.datasource.password=root
+      - JAVA_OPTS=-Xms256m -Xmx256m
     depends_on: 
       mysql:
         condition: service_healthy
