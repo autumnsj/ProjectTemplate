@@ -44,13 +44,35 @@ REDIS_PASSWORD=$PASSWD
 SENTINEL_PASSWORD=$PASSWD
 SEATA_PASSWORD=$PASSWD
 XXL_JOB_ADMIN_PASSWORD=$PASSWD
+SENTINEL_IMAGE=prod-sentinel
 ```
 
+## 4.构建镜像
+
+
+
+```bash
+#先进入sentinel所在目录
+docker build -t prod-sentinel .
+```
+
+
+
 ## 4.运行容器
+
+- 回到prod目录
 
 - 如果配置**NACOS_PASSWORD** 不为 "nacos" 则需要分步运行如果为"nacos" 略过此步骤
 
 ```
 
 ```
+
+- 启动集群
+
+  ```bash
+  docker stack deploy -c docker-compose.yaml prod
+  ```
+
+  
 

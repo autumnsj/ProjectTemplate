@@ -1,8 +1,30 @@
 version: "3.8"
 services:
+  mysql:
+      image: mysql:5.7.40
+      environment:
+        - TZ=Asia/Shanghai
+        - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+        - MYSQL_DATABASE=nacos
+        - MYSQL_USER=nacos
+        - MYSQL_PASSWORD=${MYSQL_NACOS_PASSWORD}
+        - LANG=C.UTF-8
+      volumes:
+        - ./volumes/mysql:/var/lib/mysql
+        - ./config/mysql:/docker-entrypoint-initdb.d
+      ports:
+        - "3306:3306"
+      healthcheck:
+        test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+        interval: 5s
+        timeout: 10s
+        retries: 10
+      deploy:
+        placement:
+          constraints:
+            - node.role == manager
   nacos:
     image: nacos/nacos-server:${NACOS_VERSION}
-    container_name: nacos
     volumes:
       - ./volumes/nacos/:/home/nacos/logs
       - ./config/nacos/application.properties:/home/nacos/conf/application.properties
@@ -23,44 +45,16 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "echo 'ruok' | curl -s telnet://localhost:8848 || exit 1"]
       retries: 10
-    restart: on-failure
-    depends_on:
-      mysql:
-        condition: service_healthy
     networks:
       prod_net:
     deploy:
       placement:
         constraints:
           - node.role == manager
-  mysql:
-    image: mysql:5.7.40
-    container_name: mysql
-    environment:
-      - TZ=Asia/Shanghai
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=nacos
-      - MYSQL_USER=nacos
-      - MYSQL_PASSWORD=${MYSQL_NACOS_PASSWORD}
-      - LANG=C.UTF-8
-    volumes:
-      - ./volumes/mysql:/var/lib/mysql
-      - ./config/mysql:/docker-entrypoint-initdb.d
-    ports:
-      - "3306:3306"
-    healthcheck:
-      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
-      interval: 5s
-      timeout: 10s
-      retries: 10
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    depends_on:
+      - mysql.condition=service_healthy
   redis:
-    container_name: redis
     image: redis
-    restart: always
     ports:
       - '6379:6379'
     #command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
@@ -76,7 +70,6 @@ services:
         constraints:
           - node.role == manager
   seata:
-    container_name: seata
     image: seataio/seata-server
     # ports:
     #   - "7091:7091"
@@ -94,21 +87,16 @@ services:
       # 如有问题，请阅读上面的[注意事项]以及[使用自定义配置文件]
       - "./config/seata/application.yml:/seata-server/resources/application.yml"
       #- "./config/seata/application.yml:/seata-server/conf/application.yml"
-    depends_on:
-      nacos:
-        condition: service_healthy
-      mysql:
-        condition: service_healthy 
     networks:
       prod_net:
     deploy:
       placement:
         constraints:
           - node.role == manager
+    depends_on:
+      - nacos.condition=service_healthy
   # rabbitmq:
   #   image: rabbitmq:management
-  #   container_name: rabbitmq
-  #   restart: always
   #   ports:
   #     - 5672:5672
   #     - 15672:15672
@@ -116,22 +104,24 @@ services:
   #     RABBITMQ_DEFAULT_VHOST: '/'
   #     RABBITMQ_DEFAULT_USER: admin
   #     RABBITMQ_DEFAULT_PASS: admin
-  # rocketmq-namesrv:
-  #   image: apache/rocketmq
-  #   container_name: rocketmq-namesrv
-  #   environment:
-  #     - JAVA_OPT_EXT=-server -Xms128m -Xmx128m
-  #   ports:
-  #     - 9876:9876
-  #   volumes:
-  #     - ./volumes/mq/namesrv/logs:/home/rocketmq/logs
-  #   command: sh mqnamesrv
-  #   networks:
-  #     prod_net:
+  rocketmq-namesrv:
+    image: apache/rocketmq
+    environment:
+      - JAVA_OPT_EXT=-server -Xms128m -Xmx128m
+    ports:
+      - 9876:9876
+    volumes:
+      - ./volumes/mq/namesrv/logs:/home/rocketmq/logs
+    command: sh mqnamesrv
+    networks:
+      prod_net:
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
   #Service for broker
   rocketmq-broker:
     image: apache/rocketmq
-    container_name: rocketmq-broker
     user: root
     # ports:
     #   - 10909:10909
@@ -156,7 +146,6 @@ services:
           - node.role == manager
   rocketmq-console:
     image: styletang/rocketmq-console-ng
-    container_name: rocketmq-console
     ports:
       - 8081:8080
     environment:
@@ -164,9 +153,7 @@ services:
     networks:
       prod_net:
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch-oss:${ES_VERSION}
-    container_name: elasticsearch
-    mem_limit: 1g
+    image: ${ES_VERSION}
     # ports:
     #   - "9200:9200"
     healthcheck:
@@ -186,15 +173,16 @@ services:
     networks:
       prod_net:
     deploy:
+      resources:
+        limits:
+          memory: 700m
       placement:
         constraints:
           - node.role == manager
   skywalking-oap:
     image: ${OAP_IMAGE}
-    container_name: skywalking-oap
     depends_on:
-      elasticsearch:
-        condition: service_healthy
+      - elasticsearch.condition=service_healthy
     # ports:
     #   - "11800:11800"
     #   - "12800:12800"
@@ -218,10 +206,6 @@ services:
           - node.role == manager
   skywalking-ui:
     image: ${UI_IMAGE}
-    container_name: skywalking-ui
-    depends_on:
-      skywalking-oap:
-        condition: service_healthy
     ports:
       - "8082:8080"
     environment:
@@ -234,28 +218,24 @@ services:
       placement:
         constraints:
           - node.role == manager
+    depends_on:
+      - skywalking-oap.condition=service_healthy
   sentinel:
-    container_name: sentinel
-    build:
-      context: ../../sentinel
-      dockerfile: Dockerfile
+    image: ${SENTINEL_IMAGE}
     ports:
       - "8080:8080"
     environment:
       JAVA_OPTIONS: -Dnacos.addr=nacos:8848 -Dauth.password=${SENTINEL_PASSWORD}
-    depends_on:
-      nacos:
-        condition: service_healthy
     networks:
       prod_net:
     deploy:
       placement:
         constraints:
           - node.role == manager
+    depends_on:
+      - nacos.condition=service_healthy
   xxl-job:
     image: xuxueli/xxl-job-admin:2.0.2
-    restart: always
-    container_name: xxl-job
     ports:
       - 28888:8080
     volumes:
