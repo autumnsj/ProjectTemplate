@@ -19,12 +19,14 @@ services:
         interval: 5s
         timeout: 10s
         retries: 10
-      deploy:
-        placement:
-          constraints:
-            - node.role == manager
+      networks:
+        prod_net:
+      # deploy:
+      #   placement:
+      #     constraints:
+      #       - node.role == manager
   nacos:
-    image: nacos/nacos-server:${NACOS_VERSION}
+    image: ${NACOS_VERSION}
     volumes:
       - ./volumes/nacos/:/home/nacos/logs
       - ./config/nacos/application.properties:/home/nacos/conf/application.properties
@@ -37,8 +39,8 @@ services:
       - NACOS_AUTH_IDENTITY_KEY=2222
       - NACOS_AUTH_IDENTITY_VALUE=2xxx
       - NACOS_AUTH_TOKEN=SecretKey012345678901234567890123456789012345678901234567890123456789
-      - MYSQL_SERVICE_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - JAVA_OPTS=-Ddb.password.0=${MYSQL_ROOT_PASSWORD}
+      - JVM_XMS=256m
+      - JVM_XMX=256m
     ports:
       - "8848:8848"
       - "9848:9848"
@@ -46,13 +48,14 @@ services:
       test: ["CMD-SHELL", "echo 'ruok' | curl -s telnet://localhost:8848 || exit 1"]
       retries: 10
     networks:
-      prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+      - prod_net
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
     depends_on:
-      - mysql.condition=service_healthy
+      mysql:
+        condition: service_healthy
   redis:
     image: redis
     ports:
@@ -65,10 +68,10 @@ services:
       - "./volumes/redis:/data"
     networks:
       prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
   seata:
     image: seataio/seata-server
     # ports:
@@ -89,12 +92,13 @@ services:
       #- "./config/seata/application.yml:/seata-server/conf/application.yml"
     networks:
       prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
     depends_on:
-      - nacos.condition=service_healthy
+      nacos:
+        condition: service_healthy
   # rabbitmq:
   #   image: rabbitmq:management
   #   ports:
@@ -115,10 +119,10 @@ services:
     command: sh mqnamesrv
     networks:
       prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
   #Service for broker
   rocketmq-broker:
     image: apache/rocketmq
@@ -140,10 +144,10 @@ services:
              sh mqbroker -c /opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf"
     networks:
       prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       node.role == manager
   rocketmq-console:
     image: styletang/rocketmq-console-ng
     ports:
@@ -172,17 +176,19 @@ services:
         hard: -1
     networks:
       prod_net:
-    deploy:
-      resources:
-        limits:
-          memory: 700m
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 700m
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
   skywalking-oap:
     image: ${OAP_IMAGE}
     depends_on:
-      - elasticsearch.condition=service_healthy
+      elasticsearch:
+        condition:
+          service_healthy
     # ports:
     #   - "11800:11800"
     #   - "12800:12800"
@@ -200,10 +206,10 @@ services:
       JAVA_OPTS: "-Xms512m -Xmx512m"
     networks:
       prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
   skywalking-ui:
     image: ${UI_IMAGE}
     ports:
@@ -214,12 +220,14 @@ services:
       - JAVA_OPTS=Dsecurity.user.admin.password=${SKYWALKING_PASSWORD}
     networks:
       prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
     depends_on:
-      - skywalking-oap.condition=service_healthy
+      skywalking-oap:
+        condition:
+          service_healthy
   sentinel:
     image: ${SENTINEL_IMAGE}
     ports:
@@ -228,12 +236,14 @@ services:
       JAVA_OPTIONS: -Dnacos.addr=nacos:8848 -Dauth.password=${SENTINEL_PASSWORD}
     networks:
       prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
     depends_on:
-      - nacos.condition=service_healthy
+      nacos:
+        condition:
+          service_healthy
   xxl-job:
     image: xuxueli/xxl-job-admin:2.0.2
     ports:
@@ -246,11 +256,13 @@ services:
       - spring.datasource.password=${MYSQL_ROOT_PASSWORD}
       - spring.datasource.username=root
     networks:
-      prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+      - prod_net
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
 networks:
   prod_net:
+    driver: overlay
     external: true
+    attachable: true
