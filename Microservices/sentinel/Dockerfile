@@ -4,7 +4,7 @@ COPY ./sentinel-dashboard.jar /app/sentinel-dashboard.jar
 
 ENV TZ=Asia/Shanghai
 
-ENV JAVA_OPTIONS="-Xms512m -Xmx512m "
+ENV JAVA_OPTIONS="-Xms256m -Xmx256m "
 
 
 EXPOSE 8080

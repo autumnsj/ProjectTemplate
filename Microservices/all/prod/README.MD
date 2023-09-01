@@ -71,6 +71,7 @@ docker build -t prod-sentinel .
 - 启动集群
 
   ```bash
+  set -a && . .env && set +a  #因为docker stack deploy时 .env不会生效, 所以
   docker stack deploy -c docker-compose.yaml prod
   ```
 
