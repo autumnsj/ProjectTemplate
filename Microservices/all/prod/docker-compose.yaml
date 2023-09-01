@@ -19,12 +19,14 @@ services:
         interval: 5s
         timeout: 10s
         retries: 10
-      deploy:
-        placement:
-          constraints:
-            - node.role == manager
+      networks:
+        prod_net:
+      # deploy:
+      #   placement:
+      #     constraints:
+      #       - node.role == manager
   nacos:
-    image: nacos/nacos-server:${NACOS_VERSION}
+    image: ${NACOS_VERSION}
     volumes:
       - ./volumes/nacos/:/home/nacos/logs
       - ./config/nacos/application.properties:/home/nacos/conf/application.properties
@@ -37,8 +39,9 @@ services:
       - NACOS_AUTH_IDENTITY_KEY=2222
       - NACOS_AUTH_IDENTITY_VALUE=2xxx
       - NACOS_AUTH_TOKEN=SecretKey012345678901234567890123456789012345678901234567890123456789
-      - MYSQL_SERVICE_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - JAVA_OPTS=-Ddb.password.0=${MYSQL_ROOT_PASSWORD}
+      - JVM_XMS=256m
+      - JVM_XMX=256m
+      - MYSQL_PASSWORD=${MYSQL_NACOS_PASSWORD}
     ports:
       - "8848:8848"
       - "9848:9848"
@@ -46,13 +49,14 @@ services:
       test: ["CMD-SHELL", "echo 'ruok' | curl -s telnet://localhost:8848 || exit 1"]
       retries: 10
     networks:
-      prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+      - prod_net
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
     depends_on:
-      - mysql.condition=service_healthy
+      mysql:
+        condition: service_healthy
   redis:
     image: redis
     ports:
@@ -65,21 +69,26 @@ services:
       - "./volumes/redis:/data"
     networks:
       prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
   seata:
     image: seataio/seata-server
-    # ports:
-    #   - "7091:7091"
-    #   - "8091:8091"
+    ports:
+      - "7091:7091"
+      - "8091:8091"
     environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - SEATA_PASSWORD=${SEATA_PASSWORD}
+      - NACOS_PASSWORD=${NACOS_PASSWORD}
       - TZ=Asia/Shanghai
       # 注册到nacos的服务的ip
-      - SEATA_IP=${LOCAL_IP} 
+      - SEATA_IP=seata 
       - SEATA_PORT=8091
-      - JAVA_OPTS=-Dconsole.user.password=${SEATA_PASSWORD} -Dseata.config.nacos.password=${NACOS_PASSWORD} -Dseata.registry.nacos.password=${NACOS_PASSWORD}
+      - spring.cloud.inetutils.ignoredInterfaces=eth1.*,*lo.*
+      - spring.cloud.inetutils.preferredNetworks=10.0
+      - JAVA_OPTS=-Dspring.cloud.inetutils.ignoredInterfaces=eth1.*,*lo.*
     volumes:
       #- "/usr/share/zoneinfo/Asia/Shanghai:/etc/localtime"        #设置系统时区
       #- "/usr/share/zoneinfo/Asia/Shanghai:/etc/timezone"  #设置时区
@@ -89,12 +98,13 @@ services:
       #- "./config/seata/application.yml:/seata-server/conf/application.yml"
     networks:
       prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
     depends_on:
-      - nacos.condition=service_healthy
+      nacos:
+        condition: service_healthy
   # rabbitmq:
   #   image: rabbitmq:management
   #   ports:
@@ -115,18 +125,18 @@ services:
     command: sh mqnamesrv
     networks:
       prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
   #Service for broker
   rocketmq-broker:
     image: apache/rocketmq
     user: root
-    # ports:
-    #   - 10909:10909
-    #   - 10911:10911
-    #   - 10912:10912
+    ports:
+      - 10909:10909
+      - 10911:10911
+      - 10912:10912
     environment:
       - NAMESRV_ADDR=rocketmq-namesrv:9876
       - JAVA_OPT_EXT=-server -Xms128m -Xmx128m
@@ -140,10 +150,10 @@ services:
              sh mqbroker -c /opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf"
     networks:
       prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       node.role == manager
   rocketmq-console:
     image: styletang/rocketmq-console-ng
     ports:
@@ -154,8 +164,8 @@ services:
       prod_net:
   elasticsearch:
     image: ${ES_VERSION}
-    # ports:
-    #   - "9200:9200"
+    ports:
+      - "9200:9200"
     healthcheck:
       test: [ "CMD-SHELL", "curl --silent --fail localhost:9200/_cluster/health || exit 1" ]
       interval: 30s
@@ -172,17 +182,19 @@ services:
         hard: -1
     networks:
       prod_net:
-    deploy:
-      resources:
-        limits:
-          memory: 700m
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 700m
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
   skywalking-oap:
     image: ${OAP_IMAGE}
     depends_on:
-      - elasticsearch.condition=service_healthy
+      elasticsearch:
+        condition:
+          service_healthy
     # ports:
     #   - "11800:11800"
     #   - "12800:12800"
@@ -200,10 +212,10 @@ services:
       JAVA_OPTS: "-Xms512m -Xmx512m"
     networks:
       prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
   skywalking-ui:
     image: ${UI_IMAGE}
     ports:
@@ -211,29 +223,33 @@ services:
     environment:
       - SW_OAP_ADDRESS=http://skywalking-oap:12800
       - SW_ZIPKIN_ADDRESS=http://skywalking-oap:9412
-      - JAVA_OPTS=Dsecurity.user.admin.password=${SKYWALKING_PASSWORD}
+      #- JAVA_OPTS=Dsecurity.user.admin.password=${SKYWALKING_PASSWORD}
     networks:
       prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
     depends_on:
-      - skywalking-oap.condition=service_healthy
+      skywalking-oap:
+        condition:
+          service_healthy
   sentinel:
     image: ${SENTINEL_IMAGE}
     ports:
       - "8080:8080"
     environment:
-      JAVA_OPTIONS: -Dnacos.addr=nacos:8848 -Dauth.password=${SENTINEL_PASSWORD}
+      JAVA_OPTIONS: -Dnacos.addr=nacos:8848 -Dnacos.username=nacos -Dnacos.password=${NACOS_PASSWORD} -Dauth.password=${SENTINEL_PASSWORD}
     networks:
       prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
     depends_on:
-      - nacos.condition=service_healthy
+      nacos:
+        condition:
+          service_healthy
   xxl-job:
     image: xuxueli/xxl-job-admin:2.0.2
     ports:
@@ -246,11 +262,13 @@ services:
       - spring.datasource.password=${MYSQL_ROOT_PASSWORD}
       - spring.datasource.username=root
     networks:
-      prod_net:
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+      - prod_net
+    # deploy:
+    #   placement:
+    #     constraints:
+    #       - node.role == manager
 networks:
   prod_net:
+    driver: overlay
     external: true
+    attachable: true
