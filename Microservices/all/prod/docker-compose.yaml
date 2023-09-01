@@ -41,6 +41,7 @@ services:
       - NACOS_AUTH_TOKEN=SecretKey012345678901234567890123456789012345678901234567890123456789
       - JVM_XMS=256m
       - JVM_XMX=256m
+      - MYSQL_PASSWORD=${MYSQL_NACOS_PASSWORD}
     ports:
       - "8848:8848"
       - "9848:9848"
@@ -74,15 +75,20 @@ services:
     #       - node.role == manager
   seata:
     image: seataio/seata-server
-    # ports:
-    #   - "7091:7091"
-    #   - "8091:8091"
+    ports:
+      - "7091:7091"
+      - "8091:8091"
     environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - SEATA_PASSWORD=${SEATA_PASSWORD}
+      - NACOS_PASSWORD=${NACOS_PASSWORD}
       - TZ=Asia/Shanghai
       # 注册到nacos的服务的ip
-      - SEATA_IP=${LOCAL_IP} 
+      - SEATA_IP=seata 
       - SEATA_PORT=8091
-      - JAVA_OPTS=-Dconsole.user.password=${SEATA_PASSWORD} -Dseata.config.nacos.password=${NACOS_PASSWORD} -Dseata.registry.nacos.password=${NACOS_PASSWORD}
+      - spring.cloud.inetutils.ignoredInterfaces=eth1.*,*lo.*
+      - spring.cloud.inetutils.preferredNetworks=10.0
+      - JAVA_OPTS=-Dspring.cloud.inetutils.ignoredInterfaces=eth1.*,*lo.*
     volumes:
       #- "/usr/share/zoneinfo/Asia/Shanghai:/etc/localtime"        #设置系统时区
       #- "/usr/share/zoneinfo/Asia/Shanghai:/etc/timezone"  #设置时区
@@ -127,10 +133,10 @@ services:
   rocketmq-broker:
     image: apache/rocketmq
     user: root
-    # ports:
-    #   - 10909:10909
-    #   - 10911:10911
-    #   - 10912:10912
+    ports:
+      - 10909:10909
+      - 10911:10911
+      - 10912:10912
     environment:
       - NAMESRV_ADDR=rocketmq-namesrv:9876
       - JAVA_OPT_EXT=-server -Xms128m -Xmx128m
@@ -158,8 +164,8 @@ services:
       prod_net:
   elasticsearch:
     image: ${ES_VERSION}
-    # ports:
-    #   - "9200:9200"
+    ports:
+      - "9200:9200"
     healthcheck:
       test: [ "CMD-SHELL", "curl --silent --fail localhost:9200/_cluster/health || exit 1" ]
       interval: 30s
@@ -217,7 +223,7 @@ services:
     environment:
       - SW_OAP_ADDRESS=http://skywalking-oap:12800
       - SW_ZIPKIN_ADDRESS=http://skywalking-oap:9412
-      - JAVA_OPTS=Dsecurity.user.admin.password=${SKYWALKING_PASSWORD}
+      #- JAVA_OPTS=Dsecurity.user.admin.password=${SKYWALKING_PASSWORD}
     networks:
       prod_net:
     # deploy:
@@ -233,7 +239,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      JAVA_OPTIONS: -Dnacos.addr=nacos:8848 -Dauth.password=${SENTINEL_PASSWORD}
+      JAVA_OPTIONS: -Dnacos.addr=nacos:8848 -Dnacos.username=nacos -Dnacos.password=${NACOS_PASSWORD} -Dauth.password=${SENTINEL_PASSWORD}
     networks:
       prod_net:
     # deploy:
