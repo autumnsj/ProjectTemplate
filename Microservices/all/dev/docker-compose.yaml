@@ -4,7 +4,6 @@ services:
     image: nacos/nacos-server:${NACOS_VERSION}
     container_name: nacos
     volumes:
-      - ./volumes/nacos/:/home/nacos/logs
       - ./config/nacos/application.properties:/home/nacos/conf/application.properties
     networks:
       dev_net:
@@ -29,6 +28,7 @@ services:
       test: ["CMD-SHELL", "echo 'ruok' | curl -s telnet://localhost:8848 || exit 1"]
       retries: 10
     restart: on-failure
+    #restart: always
   mysql:
     image: mysql:5.7.40
     container_name: mysql
@@ -39,10 +39,10 @@ services:
       - MYSQL_PASSWORD=nacos
       - LANG=C.UTF-8
     volumes:
-      - ./volumes/mysql:/var/lib/mysql
       - ./config/mysql:/docker-entrypoint-initdb.d
     ports:
       - "3306:3306"
+    #restart: always
     healthcheck:
       test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
       interval: 5s
@@ -71,6 +71,7 @@ services:
       # 如有问题，请阅读上面的[注意事项]以及[使用自定义配置文件]
       - "./config/seata/application.yml:/seata-server/resources/application.yml"
       #- "./config/seata/application.yml:/seata-server/conf/application.yml"
+    #restart: always
     depends_on:
       nacos:
         condition: service_healthy
@@ -89,67 +90,69 @@ services:
       - "./volumes/redis:/data"
     networks:
       dev_net:
-  # rabbitmq:
-  #   image: rabbitmq:management
-  #   container_name: rabbitmq
-  #   restart: always
-  #   ports:
-  #     - 5672:5672
-  #     - 15672:15672
-  #   environment:
-  #     RABBITMQ_DEFAULT_VHOST: '/'
-  #     RABBITMQ_DEFAULT_USER: admin
-  #     RABBITMQ_DEFAULT_PASS: admin
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - 5672:5672
+      - 15672:15672
+    environment:
+      RABBITMQ_DEFAULT_VHOST: '/'
+      # RABBITMQ_DEFAULT_USER: admin
+      # RABBITMQ_DEFAULT_PASS: admin
+    networks:
+      dev_net:
   #   volumes:
   #       - ./volumes/rabbitmq/data/:/var/lib/rabbitmq
   #       - ./volumes/rabbitmq/logs:/var/log/rabbitmq
   #   networks:
   #     dev_net:
-  rocketmq-namesrv:
-    image: apache/rocketmq
-    container_name: rocketmq-namesrv
-    environment:
-      - JAVA_OPT_EXT=-server -Xms128m -Xmx128m
-    ports:
-      - 9876:9876
-    volumes:
-      - ./volumes/mq/namesrv/logs:/home/rocketmq/logs
-    command: sh mqnamesrv
-    networks:
-      dev_net:
-  #Service for broker
-  rocketmq-broker:
-    image: apache/rocketmq
-    container_name: rocketmq-broker
-    links:
-      - rocketmq-namesrv
-    user: root
-    ports:
-      - 10909:10909
-      - 10911:10911
-      - 10912:10912
-    environment:
-      - NAMESRV_ADDR=rocketmq-namesrv:9876
-      - JAVA_OPT_EXT=-server -Xms128m -Xmx128m
-    volumes:
-      - ./volumes/mq/broker/logs:/home/rocketmq/logs
-      - ./volumes/mq/broker/store:/home/rocketmq/store
-      - ./config/rocketmq/broker-a.conf:/opt/rocketmq-ROCKETMQ_VERSION/conf/tmp.conf
-    command: >
-      sh -c "cp /opt/rocketmq-ROCKETMQ_VERSION/conf/tmp.conf /opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf && \
-             echo 'brokerIP1=${LOCAL_IP}' >> /opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf && \
-             sh mqbroker -c /opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf"
-    networks:
-      dev_net:
-  rocketmq-console:
-    image: styletang/rocketmq-console-ng
-    container_name: rocketmq-console
-    ports:
-      - 8081:8080
-    environment:
-        JAVA_OPTS: "-Drocketmq.namesrv.addr=rocketmq-namesrv:9876 -Dcom.rocketmq.sendMessageWithVIPChannel=false -Xms128m -Xmx128m"
-    networks:
-      dev_net:
+  # rocketmq-namesrv:
+  #   image: apache/rocketmq
+  #   container_name: rocketmq-namesrv
+  #   environment:
+  #     - JAVA_OPT_EXT=-server -Xms128m -Xmx128m
+  #   ports:
+  #     - 9876:9876
+  #   volumes:
+  #     - ./volumes/mq/namesrv/logs:/home/rocketmq/logs
+  #   command: sh mqnamesrv
+  #   networks:
+  #     dev_net:
+  # #Service for broker
+  # rocketmq-broker:
+  #   image: apache/rocketmq
+  #   container_name: rocketmq-broker
+  #   links:
+  #     - rocketmq-namesrv
+  #   user: root
+  #   ports:
+  #     - 10909:10909
+  #     - 10911:10911
+  #     - 10912:10912
+  #   environment:
+  #     - NAMESRV_ADDR=rocketmq-namesrv:9876
+  #     - JAVA_OPT_EXT=-server -Xms128m -Xmx128m
+  #   volumes:
+  #     - ./volumes/mq/broker/logs:/home/rocketmq/logs
+  #     - ./volumes/mq/broker/store:/home/rocketmq/store
+  #     - ./config/rocketmq/broker-a.conf:/opt/rocketmq-ROCKETMQ_VERSION/conf/tmp.conf
+  #   command: >
+  #     sh -c "cp /opt/rocketmq-ROCKETMQ_VERSION/conf/tmp.conf /opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf && \
+  #            echo 'brokerIP1=${LOCAL_IP}' >> /opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf && \
+  #            sh mqbroker -c /opt/rocketmq-ROCKETMQ_VERSION/conf/broker.conf"
+  #   networks:
+  #     dev_net:
+  # rocketmq-console:
+  #   image: styletang/rocketmq-console-ng
+  #   container_name: rocketmq-console
+  #   ports:
+  #     - 8081:8080
+  #   environment:
+  #       JAVA_OPTS: "-Drocketmq.namesrv.addr=rocketmq-namesrv:9876 -Dcom.rocketmq.sendMessageWithVIPChannel=false -Xms128m -Xmx128m"
+  #   networks:
+  #     dev_net:
   # elasticsearch:
   #   image: docker.elastic.co/elasticsearch/elasticsearch-oss:${ES_VERSION}
   #   container_name: elasticsearch
@@ -219,12 +222,13 @@ services:
       JAVA_OPTIONS: -Dnacos.addr=nacos:8848
     networks:
       dev_net:
+    #restart: always
     depends_on:
       nacos:
         condition: service_healthy
   xxl-job:
     image: xuxueli/xxl-job-admin:2.0.2
-    restart: always
+    #restart: always
     container_name: xxl-job
     ports:
       - 28888:8080
